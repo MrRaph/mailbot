@@ -93,6 +93,28 @@ class Callback(object):
 
         return ''
 
+    def get_attachments(self, message=None):
+        """Return a list of attachments.
+
+        Return all attached files within a list of 2-tuples filename and
+        content of the attachment to be stored locally.
+
+        """
+        if message is None:
+            message = self.message
+
+        if not hasattr(message, 'walk'):  # not an email.Message instance?
+            return None
+
+        content = []
+        for part in message.walk():
+            content_type = part.get_content_type()
+            filename = part.get_filename()
+            if content_type == 'application/pdf' and filename is not None:
+                # PDF file of the mail
+                content = content + [(filename,part.get_payload(decode=True))]
+        return content
+
     def trigger(self):
         """Called when a mail matching the registered rules is received."""
         raise NotImplementedError("Must be implemented in a child class.")
