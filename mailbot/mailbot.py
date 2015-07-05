@@ -17,6 +17,11 @@ class MailBot(object):
     home_folder = 'INBOX'
     imapclient = IMAPClient
 
+    # DEFINITIONS
+    CHECK_PRESENT_EMAILS = 1 # check all not deleted eMails
+    CHECK_UNSEEN_EMAILS = 2 # check all unseen eMails
+    CHECK_UNFLAGGED_EMAILS = 4 # check all unflagged eMails
+
     def __init__(self, host, username, password, port=None, use_uid=True,
                  ssl=False, stream=False, timeout=None):
         """Create, connect and login the MailBot.
@@ -36,13 +41,23 @@ class MailBot(object):
         self.client.normalise_times = False  # deal with UTC everywhere
         self.timeout = timeout
 
-    def get_message_ids(self):
+    def get_message_ids(self, check_pref=6):
         """Return the list of IDs of messages to process."""
-        return self.client.search(['Unseen', 'Unflagged'])
 
-    def get_messages(self):
+        # choose eMails to be regarded in check
+        lstSearchPref = []
+        if check_pref & self.CHECK_PRESENT_EMAILS:
+            lstSearchPref.append('not deleted')
+        if check_pref & self.CHECK_UNSEEN_EMAILS:
+            lstSearchPref.append('Unseen')
+        if check_pref & self.CHECK_UNFLAGGED_EMAILS:
+            lstSearchPref.append('Unflagged')
+
+        return self.client.search(lstSearchPref)
+
+    def get_messages(self, check_pref=6):
         """Return the list of messages to process."""
-        ids = self.get_message_ids()
+        ids = self.get_message_ids(check_pref)
         return self.client.fetch(ids, ['RFC822'])
 
     def process_message(self, message, callback_class, rules):
@@ -51,11 +66,11 @@ class MailBot(object):
         if callback.check_rules():
             return callback.trigger()
 
-    def process_messages(self):
+    def process_messages(self, check_pref=6):
         """Process messages: check which callbacks should be triggered."""
         from . import CALLBACKS_MAP
         self.reset_timeout_messages()
-        messages = self.get_messages()
+        messages = self.get_messages(check_pref)
 
         for uid, msg in messages.items():
             self.mark_processing(uid)
