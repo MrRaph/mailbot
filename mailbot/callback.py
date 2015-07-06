@@ -12,6 +12,12 @@ from .compat import text_type, encoded_padding
 class Callback(object):
     """Base class for callbacks."""
 
+    # DEFINITIONS
+    GET_ALL_ATTACHMENTS = 255 # get all attachments from eMail
+    GET_PDF_ATTACHMENTS = 1 # get only PDFs
+    GET_MSOFFICE_ATTACHMENTS = 2 # get only Word documents
+    GET_IMAGE_ATTACHMENTS = 4 # get only images
+
     def __init__(self, message, rules):
         self.matches = defaultdict(list)
         self.message = message
@@ -93,7 +99,7 @@ class Callback(object):
 
         return ''
 
-    def get_attachments(self, message=None):
+    def get_attachments(self, message=None, documents=GET_ALL_ATTACHMENTS):
         """Return a list of attachments.
 
         Return all attached files within a list of 2-tuples filename and
@@ -110,9 +116,28 @@ class Callback(object):
         for part in message.walk():
             content_type = part.get_content_type()
             filename = part.get_filename()
-            if content_type == 'application/pdf' and filename is not None:
-                # PDF file of the mail
-                content = content + [(filename,part.get_payload(decode=True))]
+
+            # check for desired file types
+            if documents == self.GET_ALL_ATTACHMENTS:
+
+                # get any file
+                if filename is not None:
+                    content = content + [(filename, part.get_payload(decode=True))]
+
+            else:
+
+                # PDF file type
+                if documents & self.GET_PDF_ATTACHMENTS and content_type == 'application/pdf' and filename is not None:
+                    content = content + [(filename,part.get_payload(decode=True))]
+
+                # MS OFFICE file types
+                if documents & self.GET_MSOFFICE_ATTACHMENTS and content_type.find('application/ms') > -1 and filename is not None:
+                    content = content + [(filename,part.get_payload(decode=True))]
+
+                # IMAGE file types
+                if documents & self.GET_IMAGE_ATTACHMENTS and content_type.find('image') > -1 and filename is not None:
+                    content = content + [(filename,part.get_payload(decode=True))]
+
         return content
 
     def trigger(self):
